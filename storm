@@ -1,0 +1,490 @@
+(function()
+	repeat wait() until game:IsLoaded()
+
+	-- Services
+	local Players = game:GetService('Players')
+	local TweenService = game:GetService('TweenService')
+	local Lighting = game:GetService('Lighting')
+	local HttpService = game:GetService('HttpService')
+	local UserInputService = game:GetService('UserInputService')
+	local VirtualInputManager = game:GetService('VirtualInputManager')
+	local CoreGui = game:GetService('CoreGui')
+
+	local player = Players.LocalPlayer
+	local pg = player:WaitForChild('PlayerGui')
+
+	-- THEME
+	local ACCENT = Color3.fromRGB(0, 120, 255)
+	local ACCENT2 = Color3.fromRGB(150, 50, 200)
+	local BG_GLASS = Color3.fromRGB(20, 20, 40)
+
+	-- Blur
+	local blur = Instance.new('BlurEffect')
+	blur.Size = 0
+	blur.Enabled = false
+	blur.Parent = Lighting
+
+	-- ScreenGui
+	local gui = Instance.new('ScreenGui')
+	gui.Name = 'StylishJoinUI'
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.Parent = pg
+
+	-- Card (تم إزالة shadow)
+	local card = Instance.new('Frame')
+	card.Size = UDim2.fromOffset(320, 200)
+	card.AnchorPoint = Vector2.new(0.5, 0.5)
+	card.Position = UDim2.fromScale(0.5, 0.5)
+	card.BackgroundColor3 = BG_GLASS
+	card.BackgroundTransparency = 0.15
+	card.BorderSizePixel = 0
+	card.ClipsDescendants = true
+	card.Parent = gui
+	Instance.new('UICorner', card).CornerRadius = UDim.new(0, 16)
+
+	local stroke = Instance.new('UIStroke')
+	stroke.Thickness = 1.5
+	stroke.Color = Color3.fromRGB(100, 150, 255)
+	stroke.Transparency = 0.6
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = card
+
+	local grad = Instance.new('UIGradient')
+	grad.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, ACCENT),
+		ColorSequenceKeypoint.new(1, ACCENT2),
+	})
+	grad.Rotation = 30
+	grad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.25),
+		NumberSequenceKeypoint.new(1, 0.25),
+	})
+	grad.Parent = card
+
+	local padding = Instance.new('UIPadding', card)
+	padding.PaddingTop = UDim.new(0, 14)
+	padding.PaddingBottom = UDim.new(0, 14)
+	padding.PaddingLeft = UDim.new(0, 14)
+	padding.PaddingRight = UDim.new(0, 14)
+
+	-- TitleBar
+	local titleBar = Instance.new('Frame')
+	titleBar.Name = 'TitleBar'
+	titleBar.BackgroundTransparency = 1
+	titleBar.Size = UDim2.new(1, 0, 0, 30)
+	titleBar.Parent = card
+
+	local title = Instance.new('TextLabel')
+	title.BackgroundTransparency = 1
+	title.Size = UDim2.new(1, -30, 1, 0)
+	title.Position = UDim2.fromOffset(2, 0)
+	title.Font = Enum.Font.GothamBold
+	title.Text = 'Storm Hub - Autojoiner'
+	title.TextColor3 = Color3.fromRGB(180, 200, 255)
+	title.TextSize = 16
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = titleBar
+
+	local minimizeBtn = Instance.new('TextButton')
+	minimizeBtn.Text = '−'
+	minimizeBtn.Font = Enum.Font.GothamBold
+	minimizeBtn.TextSize = 14
+	minimizeBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+	minimizeBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+	minimizeBtn.AutoButtonColor = false
+	minimizeBtn.Size = UDim2.fromOffset(24, 24)
+	minimizeBtn.Position = UDim2.new(1, -24, 0.5, -12)
+	minimizeBtn.Parent = titleBar
+	Instance.new('UICorner', minimizeBtn).CornerRadius = UDim.new(0, 8)
+
+	local function bindHover(btn)
+		btn.MouseEnter:Connect(function()
+			TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundTransparency = 0.05 }):Play()
+		end)
+		btn.MouseLeave:Connect(function()
+			TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundTransparency = 0 }):Play()
+		end)
+	end
+	bindHover(minimizeBtn)
+
+	-- Money Threshold Input
+	local moneyLabel = Instance.new('TextLabel')
+	moneyLabel.BackgroundTransparency = 1
+	moneyLabel.Size = UDim2.new(0, 120, 0, 20)
+	moneyLabel.Position = UDim2.new(0, 0, 0, 40)
+	moneyLabel.Font = Enum.Font.Gotham
+	moneyLabel.Text = 'Min Money (M):'
+	moneyLabel.TextColor3 = Color3.fromRGB(180, 200, 255)
+	moneyLabel.TextSize = 14
+	moneyLabel.TextXAlignment = Enum.TextXAlignment.Left
+	moneyLabel.Parent = card
+
+	local moneyInput = Instance.new('TextBox')
+	moneyInput.Size = UDim2.new(0, 60, 0, 25)
+	moneyInput.Position = UDim2.new(0, 125, 0, 38)
+	moneyInput.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+	moneyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+	moneyInput.Font = Enum.Font.Gotham
+	moneyInput.TextSize = 14
+	moneyInput.Text = '20'
+	moneyInput.PlaceholderText = '20'
+	moneyInput.Parent = card
+	Instance.new('UICorner', moneyInput).CornerRadius = UDim.new(0, 6)
+
+	-- Toggle Button
+	local button = Instance.new('TextButton')
+	button.Size = UDim2.new(0, 120, 0, 46)
+	button.AutoButtonColor = false
+	button.Text = 'Start'
+	button.Font = Enum.Font.GothamBold
+	button.TextSize = 16
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.BackgroundColor3 = ACCENT
+	Instance.new('UICorner', button).CornerRadius = UDim.new(0, 14)
+	local buttonStroke = Instance.new('UIStroke', button)
+	buttonStroke.Color = Color3.fromRGB(100, 150, 255)
+	buttonStroke.Transparency = 0.7
+	local buttonGrad = Instance.new('UIGradient', button)
+	buttonGrad.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, ACCENT),
+		ColorSequenceKeypoint.new(1, ACCENT2),
+	})
+	button.Position = UDim2.fromScale(0.5, 0.75)
+	button.AnchorPoint = Vector2.new(0.5, 0.5)
+	button.Parent = card
+
+	button.MouseEnter:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.12), { Size = UDim2.new(0, 124, 0, 48) }):Play()
+	end)
+	button.MouseLeave:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.12), { Size = UDim2.new(0, 120, 0, 46) }):Play()
+	end)
+	button.MouseButton1Down:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.06), { BackgroundTransparency = 0.05 }):Play()
+	end)
+	button.MouseButton1Up:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.08), { BackgroundTransparency = 0 }):Play()
+	end)
+
+	-- Status Label
+	local statusLabel = Instance.new('TextLabel')
+	statusLabel.BackgroundTransparency = 1
+	statusLabel.Size = UDim2.new(1, 0, 0, 16)
+	statusLabel.Position = UDim2.new(0, 0, 0, 70)
+	statusLabel.Font = Enum.Font.Gotham
+	statusLabel.Text = 'Status: Ready'
+	statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+	statusLabel.TextSize = 12
+	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+	statusLabel.Parent = card
+
+	-- Drag (تم إزالة shadow من هنا)
+	local dragging, dragStart, startPos
+	titleBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = input.Position
+			startPos = card.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = input.Position - dragStart
+			card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+
+	-- Minimize/Reopen
+	local minimized = false
+	local reopenBtn = Instance.new('TextButton')
+	reopenBtn.Text = '+'
+	reopenBtn.Font = Enum.Font.GothamBold
+	reopenBtn.TextSize = 16
+	reopenBtn.BackgroundColor3 = BG_GLASS
+	reopenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	reopenBtn.AutoButtonColor = false
+	reopenBtn.Size = UDim2.fromOffset(30, 30)
+	reopenBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+	reopenBtn.Position = UDim2.fromScale(0.5, 0.9)
+	reopenBtn.Visible = false
+	reopenBtn.Parent = gui
+	Instance.new('UICorner', reopenBtn).CornerRadius = UDim.new(0, 8)
+
+	local function openUI()
+		gui.Enabled = true
+		card.Visible = true
+		reopenBtn.Visible = false
+		minimized = false
+		TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.fromOffset(320, 200), Position = UDim2.fromScale(0.5, 0.5)
+		}):Play()
+		blur.Enabled = true
+		TweenService:Create(blur, TweenInfo.new(0.25), { Size = 4 }):Play()
+	end
+
+	local function minimizeUI()
+		TweenService:Create(card, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = UDim2.fromOffset(320, 0) }):Play()
+		TweenService:Create(blur, TweenInfo.new(0.2), { Size = 0 }):Play()
+		task.delay(0.18, function() blur.Enabled = false card.Visible = false end)
+		reopenBtn.Visible = true
+		minimized = true
+	end
+
+	openUI()
+	minimizeBtn.MouseButton1Click:Connect(minimizeUI)
+	reopenBtn.MouseButton1Click:Connect(function() if not gui.Enabled then gui.Enabled = true end openUI() end)
+
+	-- ================= AutoJoiner =================
+	local running = false
+	local wsRef
+	local WebSocketURL = 'ws://127.0.0.1:1488'
+	local MIN_MONEY_PER_SEC = 20
+
+	local function prints(str) 
+		print('[StormHub]: ' .. str)
+		statusLabel.Text = 'Status: ' .. str
+	end
+
+	-- زر Join بمسار مباشر
+	local JOIN_BUTTON_PATH = 'CoreGui.RobloxGui.Orion.Frame.ItemContainer.Frame.TextButton'
+
+	local function getByPath(path)
+		local node = game
+		for token in string.gmatch(path, '[^%.]+') do
+			if node == game then
+				local ok, svc = pcall(game.GetService, game, token)
+				node = (ok and svc) or game:FindFirstChild(token)
+			else
+				node = node and node:FindFirstChild(token)
+			end
+			if not node then return nil end
+		end
+		return node
+	end
+
+	local function getRowByLabel(labelText)
+		for _, d in ipairs(CoreGui:GetDescendants()) do
+			if d:IsA('TextLabel') and tostring(d.Text):lower() == tostring(labelText):lower() then
+				return d:FindFirstAncestorWhichIsA('Frame') or d.Parent
+			end
+		end
+	end
+
+	local function getJoinRow()
+		return getRowByLabel('Join Job-ID')
+	end
+
+	local function ensureJobInputOpen()
+		local row = getRowByLabel('Job-ID Input')
+		if not row then return nil end
+		local hasTb = false
+		for _, x in ipairs(row:GetDescendants()) do
+			if x:IsA('TextBox') then hasTb = true break end
+		end
+		if not hasTb then
+			local p, s = row.AbsolutePosition, row.AbsoluteSize
+			VirtualInputManager:SendMouseButtonEvent(p.X + s.X/2, p.Y + s.Y/2, 0, true, game, 0)
+			VirtualInputManager:SendMouseButtonEvent(p.X + s.X/2, p.Y + s.Y/2, 0, false, game, 0)
+			task.wait(0.05)
+		end
+		return row
+	end
+
+	local function findJobInputTextBox()
+		local row = ensureJobInputOpen()
+		if not row then return nil end
+		local best, bestW = nil, -1
+		for _, x in ipairs(row:GetDescendants()) do
+			if x:IsA('TextBox') and x.Visible ~= false then
+				local w = x.AbsoluteSize.X
+				if w > bestW then best, bestW = x, w end
+			end
+		end
+		return best
+	end
+
+	local function getFocusedTextBox(timeout)
+		local t0 = tick()
+		while tick() - t0 < (timeout or 5) do
+			local tb = UserInputService:GetFocusedTextBox()
+			if tb and tb:IsA('TextBox') then return tb end
+			task.wait(0.05)
+		end
+	end
+
+	local function fireAny(obj)
+		local fired = false
+		local function try(ev)
+			local ok, conns = pcall(getconnections, ev)
+			if ok and conns then for _, c in ipairs(conns) do c:Fire(); fired = true end end
+		end
+		if obj and obj:IsA('GuiObject') then
+			if obj.MouseButton1Click then try(obj.MouseButton1Click) end
+			if obj.Activated         then try(obj.Activated)         end
+			if obj.MouseButton1Down  then try(obj.MouseButton1Down)  end
+			if obj.MouseButton1Up    then try(obj.MouseButton1Up)    end
+		end
+		return fired
+	end
+
+	local function clickJoinSmart()
+		local direct = getByPath(JOIN_BUTTON_PATH)
+		if direct and (direct:IsA('TextButton') or direct:IsA('ImageButton')) then
+			if fireAny(direct) then return true end
+			local p, s = direct.AbsolutePosition, direct.AbsoluteSize
+			local cx, cy = p.X + s.X/2, p.Y + s.Y/2
+			VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 0)
+			VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 0)
+			task.wait(0.05)
+			fireAny(direct)
+			return true
+		end
+
+		local row = getJoinRow()
+		if not row then return false end
+
+		local best, bx = nil, -math.huge
+		for _, x in ipairs(row:GetDescendants()) do
+			if x:IsA('TextButton') or x:IsA('ImageButton') then
+				local px = x.AbsolutePosition.X + x.AbsoluteSize.X
+				if px > bx then best, bx = x, px end
+			end
+		end
+		if best then
+			if fireAny(best) then return true end
+			local p, s = best.AbsolutePosition, best.AbsoluteSize
+			local cx, cy = p.X + s.X/2, p.Y + s.Y/2
+			VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 0)
+			VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 0)
+			task.wait(0.05)
+			fireAny(best)
+			return true
+		end
+
+		local rp, rs = row.AbsolutePosition, row.AbsoluteSize
+		local rx, ry = rp.X + math.floor(rs.X*0.92), rp.Y + rs.Y/2
+		VirtualInputManager:SendMouseButtonEvent(rx, ry, 0, true, game, 0)
+		VirtualInputManager:SendMouseButtonEvent(rx, ry, 0, false, game, 0)
+		return true
+	end
+
+	local function fillAndSubmit(tb, jobId)
+		if not tb then return false end
+		tb:CaptureFocus()
+		tb.Text = ''
+		task.wait(0.02)
+		tb.Text = tostring(jobId)
+		tb.CursorPosition = #tostring(jobId) + 1
+		task.wait(0.02)
+		tb:ReleaseFocus(true)
+		return true
+	end
+
+	local function bypass10M(jobId, startTime)
+		local tb = findJobInputTextBox()
+		if not tb then
+			prints('ركّز خانة Job-ID يدويًا خلال 5 ثواني...')
+			tb = getFocusedTextBox(5)
+		end
+
+		if tb then
+			fillAndSubmit(tb, jobId)
+		else
+			prints('تعذّر تحديد خانة Job-ID للكتابة')
+		end
+
+		task.defer(function()
+			task.wait(0.05)
+			if clickJoinSmart() then
+				prints('Joined server مع Job ID: ' .. tostring(jobId))
+			else
+				prints('تعذر الضغط على Join Job-ID')
+			end
+		end)
+	end
+
+	local function connect()
+		while running do
+			prints('Connecting to server...')
+			local ok, socket = pcall(WebSocket.connect, WebSocketURL)
+			if ok and socket then
+				wsRef = socket
+				prints('Connected')
+				socket.OnMessage:Connect(function(msg)
+					if not running then return end
+					local s, data = pcall(function() return HttpService:JSONDecode(msg) end)
+					if s and data and data.jobid and data.money then
+						local startTime = tick()
+						local money_value = tonumber(tostring(data.money):match('%d+')) or 0
+						if tostring(data.money):find('M') then money_value = money_value * 1000000 end
+						if tostring(data.money):find('k') then money_value = money_value * 1000 end
+						
+						-- استخدم القيمة من خانة الإدخال
+						local minMoney = tonumber(moneyInput.Text) or 20
+						if money_value >= minMoney * 1000000 then
+							prints('Joining server with Job ID: ' .. data.jobid)
+							bypass10M(data.jobid, startTime)
+						end
+					else
+						prints('Invalid message')
+					end
+				end)
+				socket.OnClose:Connect(function()
+					wsRef = nil
+					if running then prints('Reconnecting...') wait(1) end
+				end)
+				while running and wsRef == socket do task.wait(0.2) end
+			else
+				prints('Connection failed, retrying...')
+				wait(1)
+			end
+		end
+	end
+
+	local function start()
+		if running then return end
+		running = true
+		task.spawn(connect)
+		prints('Started')
+	end
+
+	local function stop()
+		if not running then return end
+		running = false
+		if wsRef then pcall(function() wsRef:Close() end) wsRef = nil end
+		prints('Stopped')
+	end
+
+	-- UI toggle
+	button.MouseButton1Click:Connect(function()
+		button.Active = false
+		button.AutoButtonColor = false
+		if running then
+			stop()
+			button.Text = 'Start'
+			button.BackgroundColor3 = ACCENT
+		else
+			start()
+			button.Text = 'Stop'
+			button.BackgroundColor3 = ACCENT2
+		end
+		task.delay(0.05, function()
+			button.Active = true
+			button.AutoButtonColor = true
+		end)
+	end)
+
+	-- Hotkeys F6/F7
+	UserInputService.InputBegan:Connect(function(input, gpe)
+		if gpe then return end
+		if input.KeyCode == Enum.KeyCode.F6 then
+			button.Text = 'Stop'; button.BackgroundColor3 = ACCENT2; start()
+		elseif input.KeyCode == Enum.KeyCode.F7 then
+			button.Text = 'Start'; button.BackgroundColor3 = ACCENT; stop()
+		end
+	end)
+end)()
